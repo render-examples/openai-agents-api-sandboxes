@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { summarize } from './total.mjs';
 
+// Run these original tests after the agent edits total.mjs. Keep the tests unchanged.
 test('sums all three orders', () => {
   assert.deepEqual(summarize(readFileSync(new URL('./orders.csv', import.meta.url), 'utf8')),
     { total: 42, row_count: 3 });
