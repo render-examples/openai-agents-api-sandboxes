@@ -1,0 +1,22 @@
+{
+  "name": "render-openai-agents-api-typescript",
+  "version": "1.0.0",
+  "description": "Run an OpenAI Agents API session in a Render Sandbox.",
+  "scripts": {
+    "create-session": "tsx create_session.ts",
+    "wait-for-sandbox": "tsx wait_for_sandbox.ts",
+    "run-task": "tsx run_task.ts",
+    "cleanup": "tsx cleanup.ts",
+    "typecheck": "tsc --noEmit --strict --target ES2022 --module NodeNext --moduleResolution NodeNext --types node create_session.ts wait_for_sandbox.ts run_task.ts cleanup.ts"
+  },
+  "type": "module",
+  "dependencies": {
+    "openai": "7.30.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  },
+  "private": true
+}

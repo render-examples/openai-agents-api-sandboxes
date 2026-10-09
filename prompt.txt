@@ -1,0 +1,6 @@
+The project in /workspace contains orders.csv, total.mjs, and test_total.mjs.
+Read orders.csv and inspect the failing test. Fix total.mjs so it sums every
+amount in the CSV, including the final row. Do not change the input data or tests.
+Run node --test test_total.mjs, then run node total.mjs orders.csv.
+Save the program's JSON output to /workspace/outputs/report.json.
+Report the test result and the computed total. Work only inside /workspace.

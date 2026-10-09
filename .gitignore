@@ -1,0 +1,9 @@
+.venv/
+node_modules/
+session.json
+executor.env
+__pycache__/
+results/
+
+.pytest_cache/
+*.pyc
