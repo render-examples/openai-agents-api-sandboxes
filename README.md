@@ -31,16 +31,32 @@ sandbox. Code running in the sandbox can read its environment variables.
 
 ## 1. Install your client
 
-Clone the example, then start a Bash session and select your Render workspace:
+Run these steps separately in Bash or zsh:
 
-```shell
-git clone https://github.com/render-examples/openai-agents-api-sandboxes.git
-cd openai-agents-api-sandboxes
-bash
-umask 077
-render login
-render workspace set '<your-workspace-id>'
-```
+1. Clone the example:
+
+   ```shell
+   git clone https://github.com/render-examples/openai-agents-api-sandboxes.git
+   cd openai-agents-api-sandboxes
+   ```
+
+2. Limit access to files created in this shell:
+
+   ```shell
+   umask 077
+   ```
+
+3. Sign in to Render. Complete the browser login before continuing:
+
+   ```shell
+   render login
+   ```
+
+4. Select your Render workspace. Replace the placeholder with your workspace ID from the Render Dashboard:
+
+   ```shell
+   render workspace set '<your-workspace-id>'
+   ```
 
 **Python:**
 
@@ -62,7 +78,8 @@ Stay in the chosen language directory for the remaining steps. Enter the
 application key without putting its value in shell history:
 
 ```shell
-read -rsp 'OpenAI application API key: ' OPENAI_API_KEY
+printf 'OpenAI application API key: '
+read -rs OPENAI_API_KEY
 printf '\n'
 export OPENAI_API_KEY
 ```
@@ -82,7 +99,8 @@ retrying; the session might already exist.
 Enter the environment key and create a sandbox:
 
 ```shell
-read -rsp 'OpenAI environment key: ' ENVIRONMENT_KEY
+printf 'OpenAI environment key: '
+read -rs ENVIRONMENT_KEY
 printf '\n'
 if [[ -n "$ENVIRONMENT_KEY" && ! "$ENVIRONMENT_KEY" =~ [[:space:]] ]]; then
   printf 'CODEX_API_KEY=%s\n' "$ENVIRONMENT_KEY" > executor.env
