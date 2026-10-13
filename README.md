@@ -1,7 +1,7 @@
 # OpenAI Agents API on Render Sandboxes
 
 Run an OpenAI agent's commands and file operations in a Render Sandbox. Choose a
-Python or TypeScript client; both use the same task, tests, and expected output.
+Python or TypeScript client; both run the same task.
 
 The agent repairs a JavaScript program that skips the last row of a CSV file.
 You verify the repair through Render and download the corrected code and report.
@@ -12,7 +12,6 @@ typescript/   TypeScript client and lockfile
 fixture/      Input CSV, broken program, and four tests
 prompt.txt    Task sent to the agent
 verify.mjs    Independent report verification, run inside Render
-tests/        Local SDK contract tests
 ```
 
 ## Requirements
@@ -212,33 +211,3 @@ ownership. The executor needs outbound access to OpenAI; this example uses
 This tutorial demonstrates explicit provisioning of one session and sandbox.
 Production applications also need durable resource tracking, reconciliation of
 uncertain allocations, and cleanup in failure paths.
-
-## Development checks
-
-From the repository root, install both clients to run the contract tests:
-
-```shell
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements-dev.txt
-npm ci --prefix typescript
-npm run typecheck --prefix typescript
-python -m pytest -q
-```
-
-These checks use a local mock OpenAI server and a fake Render command. They cover
-both clients' session creation, stream completion and failure, follow-up behavior,
-readiness, and deletion retries. They do not prove a live provider run succeeded.
-The files in `fixture/` are deliberately broken until the agent fixes them.
-
-## Live validation
-
-On October 8, 2026, both language paths completed this task against the real
-OpenAI Agents API and Render Sandboxes, using OpenAI Python 3.24.0, TypeScript
-7.30.0, and Codex executor 0.162.0-alpha.16. In each run, the model corrected the
-program, all four original tests passed, the downloaded report contained
-`{"total":42,"row_count":3}`, and the corrected program was retrieved. Both
-sandboxes reached `terminated`, and both OpenAI sessions were deleted.
-
-This verifies the documented task and cleanup flow for those versions. It does
-not establish production provisioning, recovery, or load-test coverage.
