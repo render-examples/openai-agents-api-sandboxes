@@ -7,7 +7,7 @@
     "wait-for-sandbox": "tsx wait_for_sandbox.ts",
     "run-task": "tsx run_task.ts",
     "cleanup": "tsx cleanup.ts",
-    "typecheck": "tsc --noEmit --strict --target ES2022 --module NodeNext --moduleResolution NodeNext --types node create_session.ts wait_for_sandbox.ts run_task.ts cleanup.ts"
+    "typecheck": "tsc --noEmit"
   },
   "type": "module",
   "dependencies": {
