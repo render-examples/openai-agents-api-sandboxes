@@ -14,6 +14,10 @@ follow_up = len(sys.argv) > 1
 prompt = sys.argv[1] if follow_up else (
     Path(__file__).resolve().parent.parent / "prompt.txt"
 ).read_text()
+# Only the first run starts the executor, so only it needs the sandbox ID.
+sandbox_id = os.environ.get("SANDBOX_ID")
+if not follow_up and not sandbox_id:
+    sys.exit("Set SANDBOX_ID first.")
 # Each script invocation is a new submission. SDK retries reuse this key.
 idempotency_key = str(uuid4())
 
@@ -30,7 +34,7 @@ async def run_task():
                 # Write its diagnostics to /tmp/codex-exec-server.log in the sandbox.
                 await asyncio.to_thread(
                     subprocess.run,
-                    ["render", "ea", "sandboxes", "exec", os.environ["SANDBOX_ID"],
+                    ["render", "ea", "sandboxes", "exec", sandbox_id,
                      "--", "bash", "-lc",
                      'nohup codex exec-server --remote "$1" --environment-id "$2" '
                      '> /tmp/codex-exec-server.log 2>&1 < /dev/null & '

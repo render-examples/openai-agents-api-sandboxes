@@ -8,6 +8,9 @@ const state = JSON.parse(readFileSync("session.json", "utf8"));
 // A command-line prompt sends a follow-up through the existing executor.
 const followUp = process.argv[2];
 const prompt = followUp ?? readFileSync(new URL("../prompt.txt", import.meta.url), "utf8");
+// Only the first run starts the executor, so only it needs the sandbox ID.
+const sandboxId = process.env.SANDBOX_ID ?? "";
+if (!followUp && !sandboxId) throw new Error("Set SANDBOX_ID first.");
 // Each script invocation is a new submission. SDK retries reuse this key.
 const idempotencyKey = randomUUID();
 const client = new OpenAI({ timeout: 30_000 });
@@ -22,8 +25,6 @@ try {
   // The Render CLI runs this command remotely, inside the sandbox.
   // The executor inherits CODEX_API_KEY from the sandbox environment.
   if (!followUp) {
-    const sandboxId = process.env.SANDBOX_ID;
-    if (!sandboxId) throw new Error("Set SANDBOX_ID first.");
     // Detach the executor so it survives the CLI command finishing.
     // Write its diagnostics to /tmp/codex-exec-server.log in the sandbox.
     execFileSync("render", [

@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 from openai import OpenAI
 
@@ -25,9 +26,13 @@ with OpenAI(timeout=30, max_retries=0) as client:
     )
 
 print("Created session:", session.id)
+if session.environment.type != "self_hosted":
+    raise RuntimeError("Expected a self-hosted environment. Retain the session ID for cleanup.")
 # Save the IDs and connection URL for run_task.py and cleanup.py.
-path.write_text(json.dumps({
-    "session_id": session.id,
-    "environment_id": session.environment.id,
-    "remote_url": session.environment.remote_url,
-}))
+# Only the owner can read the file. O_EXCL stops a parallel run from overwriting it.
+with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as file:
+    json.dump({
+        "session_id": session.id,
+        "environment_id": session.environment.id,
+        "remote_url": session.environment.remote_url,
+    }, file)

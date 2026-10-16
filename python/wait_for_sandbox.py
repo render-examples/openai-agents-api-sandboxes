@@ -1,12 +1,16 @@
 import json
 import os
 import subprocess
+import sys
 import time
 
 # Run locally using the Render CLI login or RENDER_API_KEY.
-sandbox_id = os.environ["SANDBOX_ID"]
+sandbox_id = os.environ.get("SANDBOX_ID")
+if not sandbox_id:
+    sys.exit("Set SANDBOX_ID first.")
 # Sandbox creation is asynchronous. Limit the readiness wait to two minutes.
 deadline = time.monotonic() + 120
+ready = False
 while time.monotonic() < deadline:
     result = subprocess.run(
         ["render", "ea", "sandboxes", "list", "--all", "-o", "json"],
@@ -16,13 +20,13 @@ while time.monotonic() < deadline:
     rows = json.loads(result.stdout) or []
     # Check only the sandbox created for this walkthrough.
     sandbox = next((row for row in rows if row["id"] == sandbox_id), None)
-    if sandbox:
-        if sandbox["status"] == "running":
-            print("Sandbox is running.")
-            break
-        # These states cannot become ready without further action.
-        if sandbox["status"] in {"errored", "terminated"}:
-            raise RuntimeError(f"{sandbox_id}: {sandbox['status']}")
+    if sandbox and sandbox["status"] == "running":
+        ready = True
+        break
+    # These states cannot become ready without further action.
+    if sandbox and sandbox["status"] in {"errored", "terminated"}:
+        raise RuntimeError(f"{sandbox_id}: {sandbox['status']}")
     time.sleep(min(4, max(0, deadline - time.monotonic())))
-else:
+if not ready:
     raise TimeoutError(f"{sandbox_id} did not reach running; run cleanup.")
+print("Sandbox is running.")
