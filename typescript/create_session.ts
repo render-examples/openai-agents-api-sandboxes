@@ -22,8 +22,9 @@ if (session.environment.type !== "self_hosted") {
   throw new Error("Expected a self-hosted environment. Retain the session ID for cleanup.");
 }
 // Save the IDs and connection URL for run_task.ts and cleanup.ts.
+// Only the owner can read the file. The "wx" flag stops a parallel run from overwriting it.
 writeFileSync("session.json", JSON.stringify({
   session_id: session.id,
   environment_id: session.environment.id,
   remote_url: session.environment.remote_url,
-}), { mode: 0o600 });
+}), { mode: 0o600, flag: "wx" });
