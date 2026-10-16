@@ -8,7 +8,9 @@ const state = JSON.parse(readFileSync("session.json", "utf8"));
 // A command-line prompt sends a follow-up through the existing executor.
 const followUp = process.argv[2];
 const prompt = followUp ?? readFileSync(new URL("../prompt.txt", import.meta.url), "utf8");
-const client = new OpenAI({ timeout: 30_000, maxRetries: 0 });
+// Each script invocation is a new submission. SDK retries reuse this key.
+const idempotencyKey = randomUUID();
+const client = new OpenAI({ timeout: 30_000 });
 // Bound the local wait. Timing out does not stop the sandbox or delete the session.
 const signal = AbortSignal.timeout(180_000);
 // Subscribe before starting the executor or submitting work.
@@ -32,9 +34,9 @@ try {
       "_", state.remote_url, state.environment_id,
     ], { stdio: "inherit", timeout: 30_000 });
   }
-  // Send the task to OpenAI. Each script invocation is a new submission.
+  // Send the task to OpenAI.
   await client.beta.agents.sessions.events.create(state.session_id, {
-    "Idempotency-Key": randomUUID(),
+    "Idempotency-Key": idempotencyKey,
     events: [{
       type: "agent.session.input.message",
       input: [{ role: "user", content: [{ type: "input_text", text: prompt }] }],

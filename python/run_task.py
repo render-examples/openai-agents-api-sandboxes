@@ -14,10 +14,12 @@ follow_up = len(sys.argv) > 1
 prompt = sys.argv[1] if follow_up else (
     Path(__file__).resolve().parent.parent / "prompt.txt"
 ).read_text()
+# Each script invocation is a new submission. SDK retries reuse this key.
+idempotency_key = str(uuid4())
 
 
 async def run_task():
-    async with AsyncOpenAI(timeout=30, max_retries=0) as client:
+    async with AsyncOpenAI(timeout=30) as client:
         # Subscribe before starting the executor or submitting work.
         stream = await client.beta.agents.sessions.events.stream(state["session_id"])
         async with stream:
@@ -36,10 +38,10 @@ async def run_task():
                      "_", state["remote_url"], state["environment_id"]],
                     check=True, timeout=30,
                 )
-            # Send the task to OpenAI. Each script invocation is a new submission.
+            # Send the task to OpenAI.
             await client.beta.agents.sessions.events.create(
                 state["session_id"],
-                idempotency_key=str(uuid4()),
+                idempotency_key=idempotency_key,
                 events=[{
                     "type": "agent.session.input.message",
                     "input": [{"role": "user", "content": [
