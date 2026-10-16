@@ -25,13 +25,37 @@ You verify the repair through Render and download the corrected code and report.
 ```
 
 ```text
+run.sh        Runs all steps with one command
 python/       Python client and requirements
 typescript/   TypeScript client and lockfile
-scripts/      Shell scripts for the sandbox steps
+scripts/      Shell scripts for the sandbox steps and cleanup
 fixture/      Input CSV, broken program, and four tests
 prompt.txt    Task sent to the agent
 verify.mjs    Independent report verification, run inside Render
 ```
+
+## Quick start
+
+Get the two keys in [Requirements](#requirements). Then clone the repository
+and sign in to Render, as in the first three steps of
+[Install your client](#1-install-your-client).
+
+From the repository root, run one of these commands:
+
+```shell
+./run.sh python
+./run.sh typescript
+```
+
+The script installs the client, asks for the application key and the
+environment key, and runs steps 2 to 4. If `OPENAI_API_KEY` is set, the script
+uses it and does not ask. The results go to `results/` at the repository root.
+
+When the script exits, it stops the sandbox and deletes the session. This also
+happens after a failure or Ctrl-C. If cleanup fails, the script prints the
+command to run it again.
+
+To run each step by hand, follow the numbered sections below.
 
 ## Requirements
 
@@ -200,28 +224,24 @@ another run submits a new task.
 
 ## 5. Clean up
 
-Do both cleanup steps, even if one fails. Stop the sandbox:
-
-```shell
-render ea sandboxes stop "$SANDBOX_ID" --confirm -o json
-```
-
-Delete the OpenAI session.
+Stop the sandbox and delete the OpenAI session.
 
 **Python:**
 
 ```shell
-python cleanup.py
+../scripts/cleanup.sh python
 ```
 
 **TypeScript:**
 
 ```shell
-npx tsx cleanup.ts
+../scripts/cleanup.sh typescript
 ```
 
-The client keeps `session.json` when deletion fails. Keep the sandbox ID until
-Render confirms that the sandbox stopped. After both steps succeed:
+The script does both steps, even if one fails, and exits with an error if
+either fails. It skips the sandbox if `SANDBOX_ID` is not set, and it skips the
+session if `session.json` does not exist. The client keeps `session.json` when
+deletion fails, so you can run the script again. After the script succeeds:
 
 ```shell
 unset OPENAI_API_KEY SANDBOX_ID
