@@ -28,6 +28,12 @@ esac
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$repo/$lang"
 
+# Cleanup must remove only what this run creates.
+if [[ -e session.json ]]; then
+  echo "$lang/session.json is left from an earlier run. Run scripts/cleanup.sh $lang first." >&2
+  exit 1
+fi
+
 install
 
 # The key stays in this process. It is not written to disk.
@@ -41,9 +47,24 @@ if [[ -z "$OPENAI_API_KEY" ]]; then
 fi
 export OPENAI_API_KEY
 
+# A SANDBOX_ID from the caller's shell is not from this run.
+SANDBOX_ID=''
+export SANDBOX_ID
+
+on_exit() {
+  local status=$?
+  if ! "$repo/scripts/cleanup.sh" "$lang" && [[ "$status" -eq 0 ]]; then
+    status=1
+  fi
+  exit "$status"
+}
+trap on_exit EXIT
+# Exit on Ctrl-C or TERM so the EXIT trap runs cleanup.
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
 client create_session
 SANDBOX_ID="$("$repo/scripts/create_sandbox.sh")"
-export SANDBOX_ID
 client wait_for_sandbox
 "$repo/scripts/stage.sh"
 client run_task
