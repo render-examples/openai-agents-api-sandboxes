@@ -79,32 +79,38 @@ def api():
     yield data
     server.shutdown()
 
+# Both clients run against one fake server, so one set of assertions checks that they send the same requests.
 @pytest.fixture(params=['python','typescript'])
 def runner(request, tmp_path, api):
     lang = request.param
+    # The scripts read ../prompt.txt, so this layout keeps every file inside tmp_path.
+    work = tmp_path/lang
+    work.mkdir()
     for p in (SOURCE/lang).glob('*.py' if lang=='python' else '*.ts'):
-        shutil.copy(p, tmp_path/p.name)
+        shutil.copy(p, work/p.name)
     if lang == 'typescript':
-        (tmp_path/'node_modules').symlink_to(SOURCE/'typescript/node_modules', target_is_directory=True)
-        (tmp_path/'package.json').write_text('{"type":"module"}')
+        (work/'node_modules').symlink_to(SOURCE/'typescript/node_modules', target_is_directory=True)
+        (work/'package.json').write_text('{"type":"module"}')
     if (SOURCE/'prompt.txt').exists():
-        shutil.copy(SOURCE/'prompt.txt', tmp_path.parent/'prompt.txt')
+        shutil.copy(SOURCE/'prompt.txt', tmp_path/'prompt.txt')
     binary = tmp_path/'bin'
     binary.mkdir()
     fake = binary/'render'
     fake.write_text('#!/bin/sh\nprintf "%s\\n" "$@" >> "$CLI_LOG"\nif [ "$3" = "list" ]; then printf \'[{"id":"sbx-test","status":"running"}]\\n\'; fi\n')
     fake.chmod(0o755)
-    env = {**os.environ, 'OPENAI_API_KEY':'test-only', 'OPENAI_BASE_URL':api['base_url'], 'SANDBOX_ID':'sbx-test', 'PATH':str(binary)+os.pathsep+os.environ['PATH'], 'CLI_LOG':str(tmp_path/'cli.log')}
-    def run(name, *args):
-        cmd = [sys.executable, str(tmp_path/(name+'.py'))] if lang=='python' else [str(SOURCE/'typescript/node_modules/.bin/tsx'),str(tmp_path/(name+'.ts'))]
-        return subprocess.run(cmd+list(args), cwd=tmp_path, env=env, text=True,capture_output=True,timeout=15)
-    return run,tmp_path
+    env = {**os.environ, 'OPENAI_API_KEY':'test-only', 'OPENAI_BASE_URL':api['base_url'], 'SANDBOX_ID':'sbx-test', 'PATH':str(binary)+os.pathsep+os.environ['PATH'], 'CLI_LOG':str(work/'cli.log')}
+    def run(name, *args, unset=()):
+        cmd = [sys.executable, str(work/(name+'.py'))] if lang=='python' else [str(SOURCE/'typescript/node_modules/.bin/tsx'),str(work/(name+'.ts'))]
+        run_env = {k:v for k,v in env.items() if k not in unset}
+        return subprocess.run(cmd+list(args), cwd=work, env=run_env, text=True,capture_output=True,timeout=15)
+    return run,work
 
 def test_create_and_no_overwrite(runner,api):
     run,path=runner
     result=run('create_session')
     assert result.returncode==0, result.stderr
     assert json.loads((path/'session.json').read_text())==STATE
+    assert (path/'session.json').stat().st_mode&0o777==0o600
     assert run('create_session').returncode!=0
     assert len(api['requests'])==1
 
@@ -143,6 +149,17 @@ def test_cleanup(runner,api,case):
     assert (result.returncode==0)==success,result.stderr
     assert (path/'session.json').exists()!=success
     assert api['deletes']==(2 if case=='conflict' else 1)
+
+@pytest.mark.parametrize('name',['run_task','wait_for_sandbox'])
+def test_missing_sandbox_id(runner,api,name):
+    run,path=runner
+    (path/'session.json').write_text(json.dumps(STATE))
+    result=run(name,unset={'SANDBOX_ID'})
+    assert result.returncode!=0
+    assert 'Set SANDBOX_ID first.' in result.stderr
+    assert 'Traceback' not in result.stderr
+    assert api['requests']==[]
+    assert not (path/'cli.log').exists()
 
 def test_readiness(runner):
     run,_=runner
