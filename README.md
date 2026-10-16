@@ -18,12 +18,18 @@ verify.mjs    Independent report verification, run inside Render
 
 - Render Sandboxes access and Render CLI 2.28.0 or later.
 - Python 3.10 or later, or Node.js 22 or later. Use Bash for the shared commands.
-- An OpenAI project with Agents API access, an application API key, and an
-  environment key with matching organization, project, and user or service account.
+- An OpenAI project with Agents API access, an application key, and an
+  environment key. Both keys must belong to the same organization, project, and
+  user or service account.
 
-The application key needs `api.agents.read`, `api.agents.write`, and
-`api.responses.write`. The environment key needs environment connection access.
-See [OpenAI self-hosted authentication](https://developers.openai.com/api/docs/guides/agents-api/environments/self-hosted#authentication).
+Create the application key in the OpenAI platform, on the **API keys** tab.
+Choose a restricted key. Set **Agents** and **Responses** to **Write**, and turn
+off all other permissions. The clients read it from `OPENAI_API_KEY`.
+
+Create the environment key in the OpenAI platform. Open the **Agents** tab, then
+**Environments** > **Keys** > **Create**, and choose a self-hosted key. The
+sandbox stores the environment key as `CODEX_API_KEY`. See
+[OpenAI self-hosted authentication](https://developers.openai.com/api/docs/guides/agents-api/environments/self-hosted#authentication).
 
 The application key stays on your machine. Only the environment key goes into the
 sandbox. Code running in the sandbox can read its environment variables.
@@ -77,7 +83,7 @@ Stay in the chosen language directory for the remaining steps. Enter the
 application key without putting its value in shell history:
 
 ```shell
-printf 'OpenAI application API key: '
+printf 'OpenAI application key: '
 read -rs OPENAI_API_KEY
 printf '\n'
 export OPENAI_API_KEY
