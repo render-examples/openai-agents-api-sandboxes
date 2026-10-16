@@ -14,7 +14,9 @@ ready = False
 while time.monotonic() < deadline:
     result = subprocess.run(
         ["render", "ea", "sandboxes", "list", "--all", "-o", "json"],
-        check=True, capture_output=True, text=True,
+        check=True,
+        capture_output=True,
+        text=True,
         timeout=max(0.1, min(20, deadline - time.monotonic())),
     )
     rows = json.loads(result.stdout) or []
