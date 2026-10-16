@@ -46,9 +46,11 @@ async def run_task():
                         "--",
                         "bash",
                         "-lc",
-                        'nohup codex exec-server --remote "$1" --environment-id "$2" '
-                        "> /tmp/codex-exec-server.log 2>&1 < /dev/null & "
-                        "echo $! > /tmp/codex-exec-server.pid",
+                        (
+                            'nohup codex exec-server --remote "$1" --environment-id "$2" '
+                            "> /tmp/codex-exec-server.log 2>&1 < /dev/null & "
+                            "echo $! > /tmp/codex-exec-server.pid"
+                        ),
                         "_",
                         state["remote_url"],
                         state["environment_id"],

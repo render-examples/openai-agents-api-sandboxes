@@ -168,6 +168,8 @@ def runner(request, tmp_path, api):
         run_env = {k: v for k, v in env.items() if k not in unset}
         return subprocess.run(
             cmd + list(args),
+            # The tests check the exit code.
+            check=False,
             cwd=work,
             env=run_env,
             text=True,
