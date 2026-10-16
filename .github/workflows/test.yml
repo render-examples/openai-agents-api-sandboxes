@@ -16,6 +16,8 @@ jobs:
           cache: npm
           cache-dependency-path: typescript/package-lock.json
       - run: python -m pip install -r requirements-dev.txt
+      - run: ruff format --check .
+      - run: ruff check .
       - run: npm ci --prefix typescript
       - run: npm run typecheck --prefix typescript
       - run: python -m pytest -q
