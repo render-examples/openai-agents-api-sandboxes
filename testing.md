@@ -10,6 +10,8 @@ Run these commands from the repo root in Bash or zsh:
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements-dev.txt
+ruff format --check .
+ruff check .
 npm ci --prefix typescript
 npm run typecheck --prefix typescript
 python -m pytest -q
