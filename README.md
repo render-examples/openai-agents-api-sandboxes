@@ -7,8 +7,27 @@ The agent repairs a JavaScript program that skips the last row of a CSV file.
 You verify the repair through Render and download the corrected code and report.
 
 ```text
+                     +-------------------------------+
+                     | OpenAI                        |
+                     |   Agents API session          |
+                     +-------------------------------+
+                          ^                     ^
+  session, task,          |                     |  executor connects out
+  events (HTTPS)          |                     |  with the environment key
+                          |                     |
++-------------------------+---+   +-------------+-------------+
+| Your machine                |   | Render Sandbox            |
+|   Python or TypeScript      |   |   Codex executor          |
+|   client                    |   |   /workspace: task files  |
+|   Render CLI ---------------+-->|                           |
++-----------------------------+   +---------------------------+
+                      create, exec, copy
+```
+
+```text
 python/       Python client and requirements
 typescript/   TypeScript client and lockfile
+scripts/      Shell scripts for the sandbox steps
 fixture/      Input CSV, broken program, and four tests
 prompt.txt    Task sent to the agent
 verify.mjs    Independent report verification, run inside Render
@@ -45,19 +64,13 @@ Run these steps separately in Bash or zsh:
    cd openai-agents-api-sandboxes
    ```
 
-2. Limit access to files created in this shell:
-
-   ```shell
-   umask 077
-   ```
-
-3. Sign in to Render. Complete the browser login before continuing:
+2. Sign in to Render. Complete the browser login before continuing:
 
    ```shell
    render login
    ```
 
-4. Select your Render workspace. Replace the placeholder with your workspace ID from the Render Dashboard:
+3. Select your Render workspace. Replace the placeholder with your workspace ID from the Render Dashboard:
 
    ```shell
    render workspace set '<your-workspace-id>'
@@ -91,114 +104,126 @@ export OPENAI_API_KEY
 
 ## 2. Create the session and sandbox
 
-Run the command for your language:
+Create the OpenAI session.
 
-| Action | Python | TypeScript |
-| --- | --- | --- |
-| Create the OpenAI session | `python create_session.py` | `npx tsx create_session.ts` |
-
-This saves `session.json`. Keep it until cleanup succeeds. Do not overwrite an
-existing session file. If creation times out, inspect the OpenAI dashboard before
-retrying; the session might already exist.
-
-Enter the environment key and create a sandbox:
+**Python:**
 
 ```shell
-printf 'OpenAI environment key: '
-read -rs ENVIRONMENT_KEY
-printf '\n'
-if [[ -n "$ENVIRONMENT_KEY" && ! "$ENVIRONMENT_KEY" =~ [[:space:]] ]]; then
-  printf 'CODEX_API_KEY=%s\n' "$ENVIRONMENT_KEY" > executor.env
-  unset ENVIRONMENT_KEY
-  render ea sandboxes create --timeout=900 --network-policy=allow-all \
-    --env-file executor.env -o json
-  rm -f executor.env
-else
-  unset ENVIRONMENT_KEY
-  echo 'Enter one environment key without spaces or newlines.'
-fi
+python create_session.py
 ```
 
-Save the returned sandbox ID:
+**TypeScript:**
 
 ```shell
-export SANDBOX_ID='<returned-sandbox-id>'
+npx tsx create_session.ts
 ```
 
-If creation times out, inspect the Render Dashboard before retrying. From this
-point, run cleanup even if a later step fails. The sandbox lifetime is 15 minutes.
+The command prints the session ID and saves it to `session.json`. Keep this file
+until cleanup succeeds. The command stops if `session.json` already exists. If
+creation times out, check the OpenAI dashboard before you try again, because the
+session might exist.
 
-| Action | Python | TypeScript |
-| --- | --- | --- |
-| Wait for this sandbox | `python wait_for_sandbox.py` | `npx tsx wait_for_sandbox.ts` |
+Create the sandbox. The script asks for the environment key and prints the
+sandbox ID:
+
+```shell
+export SANDBOX_ID="$(../scripts/create_sandbox.sh)"
+echo "$SANDBOX_ID"
+```
+
+The sandbox stops after 15 minutes. From now on, run [cleanup](#5-clean-up) even
+if a later step fails. If creation fails or times out, look for the sandbox in the
+[Render Dashboard](https://dashboard.render.com) before you try again.
+
+Wait until the sandbox is running.
+
+**Python:**
+
+```shell
+python wait_for_sandbox.py
+```
+
+**TypeScript:**
+
+```shell
+npx tsx wait_for_sandbox.ts
+```
+
+The command prints `Sandbox is running.` when the sandbox is ready.
 
 ## 3. Run the task
 
-Install the executor and stage the input files:
+Install the executor and copy `fixture/` to `/workspace` in the sandbox:
 
 ```shell
-render ea sandboxes exec "$SANDBOX_ID" -- bash -lc \
-  'mkdir -p /workspace/outputs && npm install -g @openai/codex@0.162.0-alpha.16'
-render ea sandboxes copy ../fixture/ "$SANDBOX_ID:/workspace"
+../scripts/stage.sh
 ```
 
-| Action | Python | TypeScript |
-| --- | --- | --- |
-| Submit the task and stream events | `python run_task.py` | `npx tsx run_task.ts` |
+Submit the task and stream its events.
 
-The helper opens the event stream before starting the executor and submitting
-`prompt.txt`. It waits up to three minutes for a completed root turn. A timeout
-ends the local wait; run cleanup if you stop here.
+**Python:**
 
-The model should fix the CSV total from `30` to `42`. Its response alone is not
-proof of success.
+```shell
+python run_task.py
+```
+
+**TypeScript:**
+
+```shell
+npx tsx run_task.ts
+```
+
+The client opens the event stream before it starts the executor and submits
+`prompt.txt`. It waits up to three minutes for the root turn to complete. A
+timeout ends only the local wait. Run cleanup if you stop here.
+
+The model should fix the CSV total from `30` to `42`. Its response alone does not
+prove success.
 
 ## 4. Verify and download
 
-Restore the original input and tests, then check the agent's program and report:
+Restore the original input and tests, check the agent's program and report, and
+download the results:
 
 ```shell
-render ea sandboxes copy ../fixture/orders.csv "$SANDBOX_ID:/workspace/orders.csv"
-render ea sandboxes copy ../fixture/test_total.mjs "$SANDBOX_ID:/workspace/test_total.mjs"
-render ea sandboxes copy ../verify.mjs "$SANDBOX_ID:/workspace/verify.mjs"
-render ea sandboxes exec "$SANDBOX_ID" -- bash -lc \
-  'cd /workspace && node --test test_total.mjs && node verify.mjs'
+../scripts/verify.sh
 ```
 
 All four tests must pass, followed by `Verified report: total=42, row_count=3`.
-Download the files before stopping the sandbox:
-
-```shell
-mkdir -p results
-render ea sandboxes copy "$SANDBOX_ID:/workspace/outputs/report.json" results/report.json
-render ea sandboxes copy "$SANDBOX_ID:/workspace/total.mjs" results/total.mjs
-cat results/report.json
-```
-
-Expected report: `{"total":42,"row_count":3}`.
+The script saves `report.json` and `total.mjs` to `results/` at the repository
+root and prints the report. Expected report: `{"total":42,"row_count":3}`.
 
 To send another task before cleanup, pass its text as the first argument to
 `run_task.py` or `run_task.ts`. This reuses the session and executor. After a
-connection failure, inspect the session before submitting more input; another run
-submits a new task.
+connection failure, inspect the session before you submit more input, because
+another run submits a new task.
 
 ## 5. Clean up
 
-Attempt both cleanup operations even if one fails:
+Do both cleanup steps, even if one fails. Stop the sandbox:
 
 ```shell
 render ea sandboxes stop "$SANDBOX_ID" --confirm -o json
 ```
 
-| Action | Python | TypeScript |
-| --- | --- | --- |
-| Delete the OpenAI session | `python cleanup.py` | `npx tsx cleanup.ts` |
+Delete the OpenAI session.
 
-The helper retains `session.json` when deletion fails. Keep the sandbox ID until
-Render confirms termination. After both operations succeed:
+**Python:**
 
 ```shell
-rm -f executor.env
+python cleanup.py
+```
+
+**TypeScript:**
+
+```shell
+npx tsx cleanup.ts
+```
+
+The client keeps `session.json` when deletion fails. Keep the sandbox ID until
+Render confirms that the sandbox stopped. After both steps succeed:
+
+```shell
 unset OPENAI_API_KEY SANDBOX_ID
 ```
 
@@ -210,10 +235,10 @@ For executor connection problems, inspect its log while the sandbox is running:
 render ea sandboxes exec "$SANDBOX_ID" -- cat /tmp/codex-exec-server.log
 ```
 
-Check that the environment key has connection access and matches the session's
-ownership. The executor needs outbound access to OpenAI; this example uses
-`allow-all` for package installation and the connection.
+Check that the environment key matches the session's organization, project, and
+owner. The executor needs outbound access to OpenAI. This example uses the
+`allow-all` network policy for package installation and the connection.
 
-This tutorial demonstrates explicit provisioning of one session and sandbox.
-Production applications also need durable resource tracking, reconciliation of
-uncertain allocations, and cleanup in failure paths.
+This tutorial creates one session and one sandbox by hand. Production
+applications also need durable resource tracking, reconciliation of uncertain
+allocations, and cleanup in failure paths.
